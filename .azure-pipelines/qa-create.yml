@@ -1,0 +1,46 @@
+trigger: none   # Run manually
+
+pool:
+  name: Default   # self-hosted agent
+
+variables:
+- group: terraform-secrets   # Key Vault linked secrets
+
+stages:
+- stage: QA
+  displayName: "Deploy QA Infrastructure"
+  jobs:
+  - job: Terraform_QA
+    displayName: "Terraform Apply (QA)"
+    steps:
+    - checkout: self
+
+    # Terraform Init
+    - script: terraform init -backend-config="resource_group_name=rg-terraform-state" -backend-config="storage_account_name=tfstatestorage12321" -backend-config="container_name=tfstate" -backend-config="key=qa.terraform.tfstate" -backend-config="access_key=$(ARM-STORAGE-KEY)"
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "Terraform Init (QA)"
+      env:
+        ARM_CLIENT_ID: $(ARM-CLIENT-ID)
+        ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
+        ARM_TENANT_ID: $(ARM-TENANT-ID)
+
+    # Terraform Plan
+    - script: terraform plan -var-file="env/qa.tfvars" -out=tfplan
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "Terraform Plan (QA)"
+      env:
+        ARM_CLIENT_ID: $(ARM-CLIENT-ID)
+        ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
+        ARM_TENANT_ID: $(ARM-TENANT-ID)
+
+    # Terraform Apply
+    - script: terraform apply -auto-approve tfplan
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: "Terraform Apply (QA)"
+      env:
+        ARM_CLIENT_ID: $(ARM-CLIENT-ID)
+        ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
+        ARM_TENANT_ID: $(ARM-TENANT-ID)
