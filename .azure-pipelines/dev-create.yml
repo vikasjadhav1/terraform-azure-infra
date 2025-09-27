@@ -1,18 +1,18 @@
-trigger: none   # Run manually
+trigger: none   # Run manually for Dev infra
 
 pool:
   name: Default   # self-hosted agent
 
 variables:
-- group: terraform-secrets   # Key Vault linked secrets
+- group: terraform-secrets   # Linked to your Key Vault (Azuredevopskv12)
 
 stages:
-- stage: DestroyDev
-  displayName: "Destroy Dev Infrastructure"
+- stage: DeployDev
+  displayName: "Deploy Dev Infrastructure"
   jobs:
-  - deployment: Destroy_Dev
-    displayName: "Terraform Destroy (Dev)"
-    environment: Dev-Destroy   # <-- Add approvals in DevOps UI for this env
+  - deployment: Deploy_Dev
+    displayName: "Terraform Apply (Dev)"
+    environment: Dev-Deploy   # <-- Add approvals in DevOps UI if required
     strategy:
       runOnce:
         deploy:
@@ -20,8 +20,14 @@ stages:
           - checkout: self
 
           # Terraform Init
-          - script: terraform init -backend-config="resource_group_name=rg-terraform-state" -backend-config="storage_account_name=tfstatestorage12321" -backend-config="container_name=tfstate" -backend-config="key=dev.terraform.tfstate" -backend-config="access_key=$(ARM-STORAGE-KEY)"
-            workingDirectory: $(Build.SourcesDirectory)
+          - script: |
+              terraform init `
+                -backend-config="resource_group_name=rg-terraform-state" `
+                -backend-config="storage_account_name=tfstatestorage12321" `
+                -backend-config="container_name=tfstate" `
+                -backend-config="key=dev.terraform.tfstate" `
+                -backend-config="access_key=$(ARM-STORAGE-KEY)"
+            workingDirectory: $(Build.SourcesDirectory)/terraform
             displayName: "Terraform Init"
             env:
               ARM_CLIENT_ID: $(ARM-CLIENT-ID)
@@ -29,10 +35,20 @@ stages:
               ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
               ARM_TENANT_ID: $(ARM-TENANT-ID)
 
-          # Terraform Destroy
-          - script: terraform destroy -auto-approve -var-file="env/dev.tfvars"
-            workingDirectory: $(Build.SourcesDirectory)
-            displayName: "Terraform Destroy (Dev)"
+          # Terraform Plan
+          - script: terraform plan -var-file="env/dev.tfvars" -out=tfplan
+            workingDirectory: $(Build.SourcesDirectory)/terraform
+            displayName: "Terraform Plan"
+            env:
+              ARM_CLIENT_ID: $(ARM-CLIENT-ID)
+              ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
+              ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
+              ARM_TENANT_ID: $(ARM-TENANT-ID)
+
+          # Terraform Apply
+          - script: terraform apply -auto-approve tfplan
+            workingDirectory: $(Build.SourcesDirectory)/terraform
+            displayName: "Terraform Apply"
             env:
               ARM_CLIENT_ID: $(ARM-CLIENT-ID)
               ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
