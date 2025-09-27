@@ -7,22 +7,22 @@ variables:
 - group: terraform-secrets   # Linked to your Key Vault (Azuredevopskv12)
 
 stages:
-- stage: DeployDev
+- stage: Dev
   displayName: "Deploy Dev Infrastructure"
   jobs:
-  - deployment: Deploy_Dev
+  - deployment: Apply_Dev
     displayName: "Terraform Apply (Dev)"
-    environment: Dev-Deploy   # <-- Add approvals in DevOps UI if required
+    environment: Dev-Deploy   # <-- Add approvals in DevOps UI if needed
     strategy:
       runOnce:
         deploy:
           steps:
           - checkout: self
 
-          # Terraform Init (fixed one-liner for Windows agent)
+          # Terraform Init
           - script: terraform init -backend-config="resource_group_name=rg-terraform-state" -backend-config="storage_account_name=tfstatestorage12321" -backend-config="container_name=tfstate" -backend-config="key=dev.terraform.tfstate" -backend-config="access_key=$(ARM-STORAGE-KEY)"
-            workingDirectory: $(Build.SourcesDirectory)/terraform
-            displayName: "Terraform Init"
+            workingDirectory: $(Build.SourcesDirectory)
+            displayName: "Terraform Init (Dev)"
             env:
               ARM_CLIENT_ID: $(ARM-CLIENT-ID)
               ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
@@ -31,8 +31,8 @@ stages:
 
           # Terraform Plan
           - script: terraform plan -var-file="env/dev.tfvars" -out=tfplan
-            workingDirectory: $(Build.SourcesDirectory)/terraform
-            displayName: "Terraform Plan"
+            workingDirectory: $(Build.SourcesDirectory)
+            displayName: "Terraform Plan (Dev)"
             env:
               ARM_CLIENT_ID: $(ARM-CLIENT-ID)
               ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
@@ -41,8 +41,8 @@ stages:
 
           # Terraform Apply
           - script: terraform apply -auto-approve tfplan
-            workingDirectory: $(Build.SourcesDirectory)/terraform
-            displayName: "Terraform Apply"
+            workingDirectory: $(Build.SourcesDirectory)
+            displayName: "Terraform Apply (Dev)"
             env:
               ARM_CLIENT_ID: $(ARM-CLIENT-ID)
               ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
