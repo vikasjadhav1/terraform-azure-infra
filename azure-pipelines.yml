@@ -1,0 +1,40 @@
+trigger: none   # Run manually
+
+pool:
+  name: Default   # self-hosted agent
+
+variables:
+- group: terraform-secrets   # Key Vault linked secrets
+
+stages:
+- stage: DestroyDev
+  displayName: "Destroy Dev Infrastructure"
+  jobs:
+  - deployment: Destroy_Dev
+    displayName: "Terraform Destroy (Dev)"
+    environment: Dev-Destroy   # <-- Add approvals in DevOps UI for this env
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+
+          # Terraform Init
+          - script: terraform init -backend-config="resource_group_name=rg-terraform-state" -backend-config="storage_account_name=tfstatestorage12321" -backend-config="container_name=tfstate" -backend-config="key=dev.terraform.tfstate" -backend-config="access_key=$(ARM-STORAGE-KEY)"
+            workingDirectory: $(Build.SourcesDirectory)
+            displayName: "Terraform Init"
+            env:
+              ARM_CLIENT_ID: $(ARM-CLIENT-ID)
+              ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
+              ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
+              ARM_TENANT_ID: $(ARM-TENANT-ID)
+
+          # Terraform Destroy
+          - script: terraform destroy -auto-approve -var-file="env/dev.tfvars"
+            workingDirectory: $(Build.SourcesDirectory)
+            displayName: "Terraform Destroy (Dev)"
+            env:
+              ARM_CLIENT_ID: $(ARM-CLIENT-ID)
+              ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
+              ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
+              ARM_TENANT_ID: $(ARM-TENANT-ID)
