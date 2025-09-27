@@ -1,7 +1,7 @@
 trigger: none   # Run manually for Dev infra
 
 pool:
-  name: Default   # self-hosted agent
+  name: Default   # self-hosted Windows agent
 
 variables:
 - group: terraform-secrets   # Linked to your Key Vault (Azuredevopskv12)
@@ -19,14 +19,8 @@ stages:
           steps:
           - checkout: self
 
-          # Terraform Init
-          - script: |
-              terraform init `
-                -backend-config="resource_group_name=rg-terraform-state" `
-                -backend-config="storage_account_name=tfstatestorage12321" `
-                -backend-config="container_name=tfstate" `
-                -backend-config="key=dev.terraform.tfstate" `
-                -backend-config="access_key=$(ARM-STORAGE-KEY)"
+          # Terraform Init (fixed one-liner for Windows agent)
+          - script: terraform init -backend-config="resource_group_name=rg-terraform-state" -backend-config="storage_account_name=tfstatestorage12321" -backend-config="container_name=tfstate" -backend-config="key=dev.terraform.tfstate" -backend-config="access_key=$(ARM-STORAGE-KEY)"
             workingDirectory: $(Build.SourcesDirectory)/terraform
             displayName: "Terraform Init"
             env:
