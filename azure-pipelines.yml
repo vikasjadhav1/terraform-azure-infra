@@ -1,7 +1,7 @@
 trigger: none   # Run manually for Dev infra
 
 pool:
-  name: Default   # Use your self-hosted agent pool
+  name: Default   # Your self-hosted agent pool name
 
 variables:
 - group: terraform-secrets   # Linked to your Key Vault (Azuredevopskv12)
@@ -13,7 +13,10 @@ stages:
   - job: Terraform_Dev
     displayName: "Terraform Apply for Dev"
     steps:
-    # Install Terraform manually (self-hosted agent)
+    # ✅ Checkout repo so terraform_project/terraform exists
+    - checkout: self
+
+    # ✅ Install Terraform manually (since Marketplace extension not installed)
     - script: |
         curl -sLo terraform.zip https://releases.hashicorp.com/terraform/1.8.5/terraform_1.8.5_windows_amd64.zip
         tar -xf terraform.zip
@@ -21,7 +24,7 @@ stages:
         terraform -version
       displayName: "Install Terraform"
 
-    # Terraform Init with backend
+    # ✅ Terraform Init with backend
     - script: |
         terraform init `
           -backend-config="resource_group_name=rg-terraform-state" `
@@ -36,7 +39,7 @@ stages:
         ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
         ARM_TENANT_ID: $(ARM-TENANT-ID)
 
-    # Terraform Plan
+    # ✅ Terraform Plan
     - script: terraform plan -var-file="env/dev.tfvars" -out=tfplan
       workingDirectory: terraform_project/terraform
       env:
@@ -45,7 +48,7 @@ stages:
         ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
         ARM_TENANT_ID: $(ARM-TENANT-ID)
 
-    # Terraform Apply
+    # ✅ Terraform Apply
     - script: terraform apply -auto-approve tfplan
       workingDirectory: terraform_project/terraform
       env:
