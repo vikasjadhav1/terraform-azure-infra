@@ -1,10 +1,10 @@
 trigger: none   # Run manually for Dev infra
 
 pool:
-  name: Default   # Your self-hosted agent pool
+  name: Default   # Self-hosted agent pool
 
 variables:
-- group: terraform-secrets   # Linked to your Key Vault (Azuredevopskv12)
+- group: terraform-secrets   # Linked to Key Vault
 
 stages:
 - stage: Dev
@@ -13,14 +13,9 @@ stages:
   - job: Terraform_Dev
     displayName: "Terraform Apply for Dev"
     steps:
-    # ✅ Checkout repo so code is available
     - checkout: self
 
-    # ✅ Debug: Show repo path on self-hosted agent
-    - script: dir /s
-      displayName: "List repo files (Windows self-hosted)"
-
-    # Install Terraform manually
+    # Install Terraform
     - script: |
         curl -sLo terraform.zip https://releases.hashicorp.com/terraform/1.8.5/terraform_1.8.5_windows_amd64.zip
         tar -xf terraform.zip
@@ -36,7 +31,7 @@ stages:
           -backend-config="container_name=tfstate" `
           -backend-config="key=dev.terraform.tfstate" `
           -backend-config="access_key=$(ARM-STORAGE-KEY)"
-      workingDirectory: terraform_project/terraform   # 👈 may need change after dir output
+      workingDirectory: $(Build.SourcesDirectory)
       env:
         ARM_CLIENT_ID: $(ARM-CLIENT-ID)
         ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
@@ -45,7 +40,7 @@ stages:
 
     # Terraform Plan
     - script: terraform plan -var-file="env/dev.tfvars" -out=tfplan
-      workingDirectory: terraform_project/terraform   # 👈 adjust if needed
+      workingDirectory: $(Build.SourcesDirectory)
       env:
         ARM_CLIENT_ID: $(ARM-CLIENT-ID)
         ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
@@ -54,7 +49,7 @@ stages:
 
     # Terraform Apply
     - script: terraform apply -auto-approve tfplan
-      workingDirectory: terraform_project/terraform   # 👈 adjust if needed
+      workingDirectory: $(Build.SourcesDirectory)
       env:
         ARM_CLIENT_ID: $(ARM-CLIENT-ID)
         ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
