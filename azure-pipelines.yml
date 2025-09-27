@@ -1,7 +1,7 @@
 trigger: none   # Run manually for Dev infra
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: Default
 
 variables:
 - group: terraform-secrets   # Linked to your Key Vault (Azuredevopskv12)
