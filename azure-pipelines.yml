@@ -1,0 +1,52 @@
+trigger: none   # Run manually for Dev infra
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+- group: terraform-secrets   # Linked to your Key Vault (Azuredevopskv12)
+
+stages:
+- stage: Dev
+  displayName: "Deploy Dev Infrastructure"
+  jobs:
+  - job: Terraform_Dev
+    displayName: "Terraform Apply for Dev"
+    steps:
+    # Install Terraform
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: '1.8.5'
+
+    # Terraform Init with backend
+    - script: |
+        terraform init `
+          -backend-config="resource_group_name=rg-terraform-state" `
+          -backend-config="storage_account_name=tfstatestorage12321" `
+          -backend-config="container_name=tfstate" `
+          -backend-config="key=dev.terraform.tfstate" `
+          -backend-config="access_key=$(ARM-STORAGE-KEY)"
+      workingDirectory: terraform
+      env:
+        ARM_CLIENT_ID: $(ARM-CLIENT-ID)
+        ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
+        ARM_TENANT_ID: $(ARM-TENANT-ID)
+
+    # Terraform Plan
+    - script: terraform plan -var-file="env/dev.tfvars" -out=tfplan
+      workingDirectory: terraform
+      env:
+        ARM_CLIENT_ID: $(ARM-CLIENT-ID)
+        ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
+        ARM_TENANT_ID: $(ARM-TENANT-ID)
+
+    # Terraform Apply
+    - script: terraform apply -auto-approve tfplan
+      workingDirectory: terraform
+      env:
+        ARM_CLIENT_ID: $(ARM-CLIENT-ID)
+        ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
+        ARM_TENANT_ID: $(ARM-TENANT-ID)
