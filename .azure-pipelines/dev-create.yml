@@ -1,50 +1,55 @@
-trigger: none   # Run manually for Dev infra
-
-pool:
-  name: Default   # self-hosted Windows agent
-
-variables:
-- group: terraform-secrets   # Linked to your Key Vault (Azuredevopskv12)
-
 stages:
-- stage: Dev
-  displayName: "Deploy Dev Infrastructure"
+- stage: Terraform
   jobs:
-  - deployment: Apply_Dev
-    displayName: "Terraform Apply (Dev)"
-    environment: Dev-Deploy   # <-- Add approvals in DevOps UI if needed
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - checkout: self
+  - job: ProvisionInfra
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: Bash@3
+      displayName: "Install Terraform"
+      inputs:
+        targetType: 'inline'
+        script: |
+          sudo apt-get update -y
+          sudo apt-get install -y wget unzip
+          wget https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_linux_amd64.zip
+          unzip terraform_1.7.0_linux_amd64.zip
+          sudo mv terraform /usr/local/bin/
+          terraform version
 
-          # Terraform Init
-          - script: terraform init -backend-config="resource_group_name=rg-terraform-state" -backend-config="storage_account_name=tfstatestorage12321" -backend-config="container_name=tfstate" -backend-config="key=dev.terraform.tfstate" -backend-config="access_key=$(ARM-STORAGE-KEY)"
-            workingDirectory: $(Build.SourcesDirectory)
-            displayName: "Terraform Init (Dev)"
-            env:
-              ARM_CLIENT_ID: $(ARM-CLIENT-ID)
-              ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
-              ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
-              ARM_TENANT_ID: $(ARM-TENANT-ID)
+    - script: |
+        terraform init
+        terraform plan -out=tfplan
+        terraform apply -auto-approve
+      displayName: "Run Terraform"
 
-          # Terraform Plan
-          - script: terraform plan -var-file="env/dev.tfvars" -out=tfplan
-            workingDirectory: $(Build.SourcesDirectory)
-            displayName: "Terraform Plan (Dev)"
-            env:
-              ARM_CLIENT_ID: $(ARM-CLIENT-ID)
-              ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
-              ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
-              ARM_TENANT_ID: $(ARM-TENANT-ID)
+    - script: |
+        terraform output -json > tf_output.json
+      displayName: "Export Terraform Outputs"
 
-          # Terraform Apply
-          - script: terraform apply -auto-approve tfplan
-            workingDirectory: $(Build.SourcesDirectory)
-            displayName: "Terraform Apply (Dev)"
-            env:
-              ARM_CLIENT_ID: $(ARM-CLIENT-ID)
-              ARM_CLIENT_SECRET: $(ARM-CLIENT-SECRET)
-              ARM_SUBSCRIPTION_ID: $(ARM-SUBSCRIPTION-ID)
-              ARM_TENANT_ID: $(ARM-TENANT-ID)
+    - publish: $(System.DefaultWorkingDirectory)/tf_output.json
+      artifact: tfoutput
+
+- stage: Ansible
+  dependsOn: Terraform
+  jobs:
+  - job: ConfigureVMs
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - download: current
+      artifact: tfoutput
+
+    - script: |
+        sudo apt-get update -y
+        sudo apt-get install -y python3-pip jq sshpass
+        pip3 install ansible
+
+        # Create Ansible inventory dynamically
+        cat tf_output.json | jq -r '.vm_public_ip.value' > ansible/inventory
+
+        # Run Ansible playbook
+        ansible-playbook -i ansible/inventory ansible/playbook.yml \
+          --user azureuser \
+          --private-key ~/.ssh/id_rsa
+      displayName: "Run Ansible Playbook"

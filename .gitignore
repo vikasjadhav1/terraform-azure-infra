@@ -1,0 +1,23 @@
+# Local .terraform directories
+**/.terraform/*
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Exclude override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform lock file (optional, commit if you want dependency locks)
+.terraform.lock.hcl
+
+# IDE/editor junk
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
